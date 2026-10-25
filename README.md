@@ -9,7 +9,14 @@ cada ônibus, que dá para baixar pelo próprio app.
 Requer Python 3.13 e [uv](https://docs.astral.sh/uv/).
 
 1. Gere um token da API Olho Vivo em <https://www.sptrans.com.br/desenvolvedores/> (precisa de cadastro).
-2. Copie `.env.example` para `.env` e preencha `OLHO_VIVO_TOKEN`.
+2. Configure o token de um destes dois jeitos:
+   - **`.env`**: copie `.env.example` para `.env` e preencha `OLHO_VIVO_TOKEN`. Uma variável de ambiente com
+     esse nome também serve.
+   - **Secrets do Streamlit**: copie `.streamlit/secrets.toml.example` para `.streamlit/secrets.toml` e
+     preencha `OLHO_VIVO_TOKEN`. No Streamlit Community Cloud, cole a mesma linha em *Settings > Secrets*.
+
+   O app procura primeiro no `.env` (ou na variável de ambiente) e só usa os secrets se não achar o token ali.
+   Os testes de integração leem só o `.env`.
 3. Instale as dependências e suba o app:
 
 ```bash

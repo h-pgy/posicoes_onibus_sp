@@ -1,3 +1,4 @@
+import os
 import time
 from collections import deque
 from pathlib import Path
@@ -6,6 +7,7 @@ import pandas as pd
 import pydeck as pdk
 import requests
 import streamlit as st
+from dotenv import load_dotenv
 
 from source.integrations import APIOlhoVivoClient
 from source.services import MetricasFrota, MonitorMovimento, MovimentoFrota, PosicoesOnibus, RegistroCSV
@@ -72,11 +74,28 @@ def cores_do_tema() -> dict[str, str]:
     return CORES['dark' if st.context.theme.type == 'dark' else 'light']
 
 
+def token_api() -> str:
+    '''Token do .env (ou de uma variavel de ambiente); se nao tiver, dos secrets do streamlit.'''
+
+    nome = APIOlhoVivoClient.ENV_TOKEN
+    load_dotenv()
+    token = os.getenv(nome)
+    if not token:
+        try:
+            token = st.secrets.get(nome)
+        #o streamlit levanta isso quando nao existe nenhum secrets.toml
+        except FileNotFoundError:
+            token = None
+    if not token:
+        raise RuntimeError(f'Token não encontrado: preencha {nome} no .env ou em .streamlit/secrets.toml')
+    return token
+
+
 def iniciar_sessao() -> None:
     '''Busca a primeira leitura, que vira o t0 do monitor.'''
 
     estado = st.session_state
-    client = APIOlhoVivoClient()
+    client = APIOlhoVivoClient(token_api())
     estado.monitor = MonitorMovimento(client, client.posicao_atual_onibus())
     estado.posicoes = PosicoesOnibus(estado.monitor.ultimo_raw)
     estado.frota = MetricasFrota(estado.monitor.ultimo_raw)

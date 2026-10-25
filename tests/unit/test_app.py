@@ -43,6 +43,27 @@ def respostas(monkeypatch, tmp_path):
     return fila
 
 
+@pytest.fixture
+def tokens(monkeypatch):
+    '''Tokens com que o client foi criado.'''
+    usados = []
+    init_original = APIOlhoVivoClient.__init__
+
+    def init(self, token=None):
+        init_original(self, token)
+        usados.append(self.token)
+
+    monkeypatch.setattr(APIOlhoVivoClient, '__init__', init)
+    return usados
+
+
+@pytest.fixture
+def sem_dotenv(monkeypatch):
+    '''Simula a ausencia do .env (sem isso o app acharia o .env real do projeto).'''
+    monkeypatch.delenv(APIOlhoVivoClient.ENV_TOKEN)
+    monkeypatch.setattr('dotenv.load_dotenv', lambda *args, **kwargs: False)
+
+
 def proxima_leitura(app: AppTest) -> None:
     '''Simula que ja passou o intervalo do loop e reroda.'''
     app.session_state['ultima_coleta'] = float('-inf')
@@ -125,3 +146,31 @@ def test_loop_pausado_nao_chama_a_api(respostas):
 
     assert not app.exception
     assert 'pausada' in app.caption[0].value
+
+
+def test_token_do_env_tem_prioridade_sobre_os_secrets(respostas, tokens):
+    respostas.append(RAW_T0)
+    app = AppTest.from_file('../../app.py')
+    app.secrets[APIOlhoVivoClient.ENV_TOKEN] = 'token-secrets'
+    app.run()
+
+    assert not app.exception
+    assert tokens == ['token-fake']
+
+
+def test_sem_env_usa_o_token_dos_secrets(respostas, tokens, sem_dotenv):
+    respostas.append(RAW_T0)
+    app = AppTest.from_file('../../app.py')
+    app.secrets[APIOlhoVivoClient.ENV_TOKEN] = 'token-secrets'
+    app.run()
+
+    assert not app.exception
+    assert tokens == ['token-secrets']
+    assert metricas(app)['Ônibus circulando'] == '2'
+
+
+def test_sem_token_mostra_erro(respostas, sem_dotenv):
+    app = AppTest.from_file('../../app.py').run()
+
+    assert not app.exception
+    assert 'Token não encontrado' in app.error[0].value
